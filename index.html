@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LevelUp Savings</title>
+  <meta name="theme-color" content="#6366f1">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
+      color: #e0e7ff;
+      margin: 0;
+      padding: 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 2.5rem; color: #6366f1; }
+    .card {
+      background: #1e2937;
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid #334155;
+    }
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #4f46e5; }
+    input, select {
+      background: #334155;
+      border: 1px solid #475569;
+      color: white;
+      padding: 12px;
+      border-radius: 12px;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .section-title { font-size: 1.3rem; margin-bottom: 16px; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: #6366f1; }
+    .progress-bar {
+      background: #475569;
+      height: 12px;
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress-fill {
+      background: linear-gradient(to right, #22c55e, #4ade80);
+      height: 100%;
+      transition: width 0.4s;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>LevelUp Savings</h1>
+
+  <!-- Username / Sign In -->
+  <div class="card" id="usernameSection">
+    <h3>Welcome! What's your name?</h3>
+    <input type="text" id="usernameInput" placeholder="Enter your name">
+    <button onclick="setUsername()">Start Playing</button>
+  </div>
+
+  <!-- Main App (hidden until username is set) -->
+  <div id="mainApp" style="display: none;">
+
+    <!-- User Info -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong id="displayUsername"></strong><br>
+          <small id="userStatus">Free User</small>
+        </div>
+        <button onclick="resetApp()" style="background: #ef4444;">Reset Progress</button>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <button onclick="goPremium()" style="background: #22c55e; width: 100%; font-size: 1.1rem;">
+          ⭐ Go Premium - Unlock More Features
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="card">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px;">
+        <div class="stat-card" style="background:#334155; padding:20px; border-radius:16px; text-align:center;">
+          <div>Total Saved</div>
+          <div class="stat-value" id="totalSaved">$0</div>
+        </div>
+        <div class="stat-card" style="background:#334155; padding:20px; border-radius:16px; text-align:center;">
+          <div>Points</div>
+          <div class="stat-value" id="points">0</div>
+        </div>
+        <div class="stat-card" style="background:#334155; padding:20px; border-radius:16px; text-align:center;">
+          <div>Level</div>
+          <div class="stat-value" id="level">1</div>
+        </div>
+        <div class="stat-card" style="background:#334155; padding:20px; border-radius:16px; text-align:center;">
+          <div>Streak 🔥</div>
+          <div class="stat-value" id="streak">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goals -->
+    <div class="card">
+      <div class="section-title">🎯 Savings Goals</div>
+      <div id="goalsList"></div>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <input type="text" id="goalName" placeholder="Goal name">
+        <input type="number" id="goalAmount" placeholder="Target $" style="width:120px;">
+        <button onclick="addGoal()">Add Goal</button>
+      </div>
+    </div>
+
+    <!-- Challenges -->
+    <div class="card">
+      <div class="section-title">⚡ Smart Daily Challenges</div>
+      <div id="challengesList"></div>
+    </div>
+
+    <!-- Shop -->
+    <div class="card">
+      <div class="section-title">🛍️ Points Shop</div>
+      <div id="shopList"></div>
+    </div>
+
+    <!-- Log Money -->
+    <div class="card">
+      <div class="section-title">📝 Log Money</div>
+      <select id="transType">
+        <option value="saved">I saved money</option>
+        <option value="spent">I spent money</option>
+      </select>
+      <input type="number" id="transAmount" placeholder="Amount">
+      <button onclick="logTransaction()" style="width:100%;">Log Transaction</button>
+      <div id="logList" style="margin-top:16px; max-height:160px; overflow:auto;"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Paystack -->
+<script src="https://js.paystack.co/v1/inline.js"></script>
+
+<script>
+// ==================== DATA (Saved in Browser) ====================
+let data = JSON.parse(localStorage.getItem('levelUpData')) || {
+  username: "",
+  totalSaved: 0,
+  points: 50,
+  level: 1,
+  streak: 0,
+  lastLogin: new Date().toDateString(),
+  goals: [],
+  challenges: [],
+  shopItems: [
+    { id: 1, name: "Cool Avatar Frame", cost: 150, owned: false },
+    { id: 2, name: "Golden Badge", cost: 300, owned: false },
+    { id: 3, name: "Double Points (24h)", cost: 400, owned: false },
+    { id: 4, name: "Extra Goal Slot", cost: 250, owned: false }
+  ],
+  transactions: [],
+  isPremium: false
+};
+
+function saveData() {
+  localStorage.setItem('levelUpData', JSON.stringify(data));
+  updateUI();
+}
+
+// ==================== USERNAME ====================
+function setUsername() {
+  const name = document.getElementById('usernameInput').value.trim();
+  if (!name) return alert("Please enter your name");
+
+  data.username = name;
+  document.getElementById('usernameSection').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  document.getElementById('displayUsername').innerText = name;
+
+  // Generate challenges if first time
+  if (data.challenges.length === 0) {
+    data.challenges = generateSmartChallenges();
+  }
+
+  saveData();
+  updateUI();
+}
+
+// ==================== UI UPDATE ====================
+function updateUI() {
+  if (!data.username) return;
+
+  document.getElementById('displayUsername').innerText = data.username;
+  document.getElementById('totalSaved').textContent = '$' + data.totalSaved;
+  document.getElementById('points').textContent = data.points;
+  document.getElementById('level').textContent = data.level;
+  document.getElementById('streak').textContent = data.streak;
+
+  // Premium status
+  const status = document.getElementById('userStatus');
+  if (data.isPremium) {
+    status.innerText = "⭐ Premium User";
+    status.style.color = "#22c55e";
+  } else {
+    status.innerText = "Free User";
+    status.style.color = "#64748b";
+  }
+
+  // Goals
+  let goalsHTML = '';
+  data.goals.forEach((goal, i) => {
+    const progress = Math.min(Math.round((goal.current / goal.target) * 100), 100);
+    goalsHTML += `
+      <div style="margin-bottom:12px;">
+        <strong>${goal.name}</strong> — $${goal.current} / $${goal.target}
+        <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+        <button onclick="addToGoal(${i})" style="margin-top:6px;">+ $5</button>
+      </div>
+    `;
+  });
+  document.getElementById('goalsList').innerHTML = goalsHTML || '<p>No goals yet.</p>';
+
+  // Challenges
+  let challengesHTML = '';
+  data.challenges.forEach((ch, i) => {
+    challengesHTML += `
+      <div style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+        <span>${ch.text} (+${ch.points} pts)</span>
+        <button onclick="completeChallenge(${i})" ${ch.completed ? 'disabled' : ''}>
+          ${ch.completed ? '✅ Done' : 'Complete'}
+        </button>
+      </div>
+    `;
+  });
+  document.getElementById('challengesList').innerHTML = challengesHTML;
+
+  // Shop
+  let shopHTML = '';
+  data.shopItems.forEach(item => {
+    shopHTML += `
+      <div style="margin-bottom:8px; display:flex; justify-content:space-between;">
+        <span>${item.name}</span>
+        <button onclick="buyItem(${item.id})" ${item.owned || data.points < item.cost ? 'disabled' : ''}>
+          ${item.owned ? 'Owned' : item.cost + ' pts'}
+        </button>
+      </div>
+    `;
+  });
+  document.getElementById('shopList').innerHTML = shopHTML;
+
+  // Transactions
+  let logHTML = '';
+  data.transactions.slice().reverse().slice(0, 6).forEach(t => {
+    logHTML += `<div>${t.type === 'saved' ? '✅' : '❌'} $${t.amount} — ${t.date}</div>`;
+  });
+  document.getElementById('logList').innerHTML = logHTML || '<p>No transactions yet.</p>';
+}
+
+// ==================== GAME FUNCTIONS ====================
+function generateSmartChallenges() {
+  return [
+    { text: "No-spend day", points: 40, completed: false },
+    { text: "Save at least $10 this week", points: 60, completed: false },
+    { text: "Log your money today", points: 30, completed: false }
+  ];
+}
+
+function addGoal() {
+  const name = document.getElementById('goalName').value.trim();
+  const amount = parseInt(document.getElementById('goalAmount').value);
+  if (!name || !amount) return alert("Enter goal name and amount");
+
+  data.goals.push({ name, target: amount, current: 0 });
+  document.getElementById('goalName').value = '';
+  document.getElementById('goalAmount').value = '';
+  saveData();
+}
+
+function addToGoal(index) {
+  data.goals[index].current += 5;
+  data.totalSaved += 5;
+  data.points += 10;
+  checkLevelUp();
+  saveData();
+}
+
+function completeChallenge(index) {
+  if (data.challenges[index].completed) return;
+  data.challenges[index].completed = true;
+  data.points += data.challenges[index].points;
+  data.totalSaved += 5;
+  checkLevelUp();
+  saveData();
+}
+
+function buyItem(itemId) {
+  const item = data.shopItems.find(i => i.id === itemId);
+  if (!item || item.owned || data.points < item.cost) return;
+
+  data.points -= item.cost;
+  item.owned = true;
+  alert(`You bought: ${item.name}!`);
+  saveData();
+}
+
+function logTransaction() {
+  const type = document.getElementById('transType').value;
+  const amount = parseInt(document.getElementById('transAmount').value);
+  if (!amount) return;
+
+  if (type === 'saved') {
+    data.totalSaved += amount;
+    data.points += Math.floor(amount / 2);
+  } else {
+    data.totalSaved = Math.max(0, data.totalSaved - amount);
+  }
+
+  data.transactions.push({
+    type,
+    amount,
+    date: new Date().toLocaleDateString()
+  });
+
+  document.getElementById('transAmount').value = '';
+  checkLevelUp();
+  saveData();
+}
+
+function checkLevelUp() {
+  const newLevel = Math.floor(data.points / 100) + 1;
+  if (newLevel > data.level) {
+    data.level = newLevel;
+    alert(`🎉 Level Up! You are now Level ${data.level}`);
+  }
+}
+
+// ==================== PAYSTACK ====================
+function goPremium() {
+  const handler = PaystackPop.setup({
+    key: 'pk_test_b59834ab1fd0c0630c66', // ← Replace with your real key
+    email: data.username + "@levelupsavings.app",
+    amount: 2500, // GH₵25 in kobo
+    currency: "GHS",
+    ref: 'levelup_' + Date.now(),
+    callback: function(response) {
+      alert("Payment successful! Reference: " + response.reference);
+      data.isPremium = true;
+      saveData();
+      alert("🎉 Thank you! You are now Premium.");
+    },
+    onClose: function() {
+      alert("Payment window closed.");
+    }
+  });
+  handler.openIframe();
+}
+
+// ==================== RESET ====================
+function resetApp() {
+  if (confirm("Reset all progress?")) {
+    localStorage.removeItem('levelUpData');
+    location.reload();
+  }
+}
+
+// ==================== START APP ====================
+function startApp() {
+  if (data.username) {
+    document.getElementById('usernameSection').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('displayUsername').innerText = data.username;
+    updateUI();
+  }
+}
+
+startApp();
+</script>
+</body>
+</html>

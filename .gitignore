@@ -1,0 +1,15 @@
+#Ignore system files
+.DS_Store
+Thumbs.db
+
+#Ignore editor/IDE folders
+.vscode/
+.idea/
+
+#Ignore log files
+*.log
+
+#Ignore any future sensitive files
+.env
+config.js
+secrets.js
